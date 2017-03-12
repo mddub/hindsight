@@ -2,6 +2,7 @@ import datetime
 import os
 import re
 import sys
+from argparse import ArgumentParser
 from collections import defaultdict
 from datetime import timedelta
 
@@ -16,9 +17,13 @@ SCREENSHOTS_PATH = '/Users/mark/Library/Application Support/LifeSlice/screenshot
 IMG_STYLE = 'max-height: 68px; max-width: 120px;'
 DIV_STYLE = 'display: none; top: 68px; left: 0px; width: 400px; min-height: 100px; font-size: 14px; background: beige; position: absolute; z-index: 999;'
 
-if len(sys.argv) > 1:
-    date_str = sys.argv[1]
-    date = date_parser.parse(date_str).date()
+arg_parser = ArgumentParser()
+arg_parser.add_argument('--date', help='date to view')
+arg_parser.add_argument('--screen', default='1', help='screen number')
+args, _ = arg_parser.parse_known_args()
+
+if args.date:
+    date = date_parser.parse(args.date).date()
 else:
     today = datetime.datetime.now()
     date = datetime.date(today.year, today.month, today.day)
@@ -26,7 +31,8 @@ else:
 files = os.listdir(SCREENSHOTS_PATH)
 # screen_2017-01-20T11-00-00Z-0800.png
 # screen_2_2017-01-20T11-00-00Z-0800.png
-matches = filter(None, [re.match('screen_' + date.strftime('%Y-%m-%d') + 'T(\d\d)-(\d\d)-(\d\d)Z(-\d{4})\.png', f) for f in files])
+prefix = 'screen_' if args.screen == '1' else 'screen_{}_'.format(args.screen)
+matches = filter(None, [re.match(prefix + date.strftime('%Y-%m-%d') + 'T(\d\d)-(\d\d)-(\d\d)Z(-\d{4})\.png', f) for f in files])
 hour_minute_to_screenshot = {}
 for match in matches:
     filename = match.group()
