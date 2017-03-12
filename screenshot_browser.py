@@ -6,15 +6,15 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from datetime import timedelta
 
-import sqlite3
 from dateutil.parser import parser
 
 date_parser = parser()
 
-SQLITE_DB = '/Users/mark/.selfspy/selfspy.sqlite'
-SCREENSHOTS_PATH = '/Users/mark/Library/Application Support/LifeSlice/screenshot_thumbs'
-#IMG_STYLE = 'max-height: 45px; max-width: 80px;'
+SELFSPY_SQLITE_DB = os.path.expanduser('~/.selfspy/selfspy.sqlite')
+LIFESLICE_SQLITE_DB = os.path.expanduser('~/Library/Application Support/LifeSlice/lifeslice.sqlite')
+SCREENSHOTS_PATH = os.path.expanduser('~/Library/Application Support/LifeSlice/screenshot_thumbs')
 IMG_STYLE = 'max-height: 68px; max-width: 120px;'
+PLACEHOLDER_STYLE = 'height: 68px; width: 120px;'
 DIV_STYLE = 'display: none; top: 68px; left: 0px; width: 400px; min-height: 100px; font-size: 14px; background: beige; position: absolute; z-index: 999;'
 
 arg_parser = ArgumentParser()
@@ -40,21 +40,78 @@ for match in matches:
     hour, minute, second = map(int, (hour, minute, second))
     hour_minute_to_screenshot[(hour, minute)] = filename
 
-if False:
-    hour_minute_to_window_titles = defaultdict(list)
-    conn = sqlite3.connect(SQLITE_DB)
+include_selfspy_db = False
+if include_selfspy_db:
+    import sqlite3
+    conn = sqlite3.connect(SELFSPY_SQLITE_DB)
     conn.row_factory = sqlite3.Row
     query = 'select * from window inner join process on window.process_id = process.id'
     query += ' where window.created_at >= datetime("' + date.strftime('%Y-%m-%d') + '")'
     query += ' and window.created_at < datetime("' + (date + timedelta(days=1)).strftime('%Y-%m-%d') + '")'
     windows_today = conn.execute(query).fetchall()
+
+    selfspy_hour_minute_to_window_titles = defaultdict(list)
     for window in windows_today:
         _, created_at_str, title, _, _ , _, process_name = window
         created_at = date_parser.parse(created_at_str)
-        hour_minute_to_window_titles[(created_at.hour, 5 * (created_at.minute / 5))].append('%s %s %s' % (created_at, process_name, title))
+        selfspy_hour_minute_to_window_titles[(created_at.hour, 5 * (created_at.minute / 5))].append('%s %s %s' % (created_at, process_name, title))
 
-print '<meta charset="utf-8">'
-print '<table><tr><td></td>'
+include_lifeslice_db = True
+if include_lifeslice_db:
+    import sqlite3
+    conn = sqlite3.connect(LIFESLICE_SQLITE_DB)
+    conn.row_factory = sqlite3.Row
+
+    query = 'select datetime, clickCount, cursorDistance from mouse'
+    query += ' where interval=5'
+    query += ' and datetime like "{}%"'.format(date.strftime('%Y-%m-%d'));
+    mouse_periods = conn.execute(query).fetchall()
+
+    lifeslice_hour_minute_to_mouse_distance = defaultdict(int)
+    lifeslice_hour_minute_to_mouse_clicks = defaultdict(int)
+    for (start_time_str, clicks, distance) in mouse_periods:
+        start_time = date_parser.parse(start_time_str)
+        lifeslice_hour_minute_to_mouse_distance[(start_time.hour, start_time.minute)] = distance / 1000.0
+        lifeslice_hour_minute_to_mouse_clicks[(start_time.hour, start_time.minute)] = clicks / 2.0
+
+    query = 'select datetime, keyCount, wordCount from keyboard'
+    query += ' where interval=5'
+    query += ' and datetime like "{}%"'.format(date.strftime('%Y-%m-%d'));
+    keyboard_periods = conn.execute(query).fetchall()
+
+    lifeslice_hour_minute_to_word_count = defaultdict(int)
+    for (start_time_str, key_count, word_count) in keyboard_periods:
+        start_time = date_parser.parse(start_time_str)
+        lifeslice_hour_minute_to_word_count[(start_time.hour, start_time.minute)] = word_count / 2.0
+
+
+print '''
+<head>
+    <meta charset="utf-8">
+    <style>
+        .lifeslice-count {
+            width: 20px;
+            position: absolute;
+            bottom: 0;
+            opacity: 0.6;
+            left: 0;
+            background: #ffff99;
+            border: 1px solid white;
+            border-bottom: none;
+        }
+        .lifeslice-mouse-clicks {
+            left: 21px;
+            background: #fdc086;
+        }
+        .lifeslice-keyboard-word-count {
+            left: 42px;
+            background: #8dd3c7;
+        }
+    </style>
+</head>
+    <table>
+'''
+print '<tr><td></td>'
 for m in range(0, 60, 5):
     print '<th>%s</th>' % m
 print '</tr>'
@@ -64,7 +121,9 @@ for h in range(24):
     print '<th>%s</th>' % h
     for m in range(0, 60, 5):
         dom_id = 'windows-%02d%02d' % (h, m)
-        mouseover, mouseout = ['document.querySelector(\'#' + dom_id + '\').style.display = \'%s\';' % d for d in ('inherit', 'none')]
+        mouseover, mouseout = '', ''
+        if include_selfspy_db:
+            mouseover, mouseout = ['document.querySelector(\'#' + dom_id + '\').style.display = \'%s\';' % d for d in ('inherit', 'none')]
         print '<td style="position: relative;">'
         if (h, m) in hour_minute_to_screenshot:
             print '<img src="{src}" style="{style}" onmouseover="{mouseover}" onmouseout="{mouseout}">'.format(
@@ -73,11 +132,25 @@ for h in range(24):
                 mouseover=mouseover,
                 mouseout=mouseout,
             )
-        print '<div id="' + dom_id + '" style="' + DIV_STYLE + '">'
-        if False:
-            for window in hour_minute_to_window_titles[(h, m)]:
-                print window.encode('UTF-8') + '<br>'
-        print '</div>'
+            if include_selfspy_db:
+                print '<div id="' + dom_id + '" style="' + DIV_STYLE + '">'
+                for window in selfspy_hour_minute_to_window_titles[(h, m)]:
+                    print window.encode('UTF-8') + '<br>'
+                print '</div>'
+            if include_lifeslice_db:
+                if (h, m) not in hour_minute_to_screenshot:
+                    print '<div style="{style}"></div>'.format(
+                        style=PLACEHOLDER_STYLE,
+                    )
+                print '<div class="lifeslice-count lifeslice-mouse-distance" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_mouse_distance[(h, m)]
+                )
+                print '<div class="lifeslice-count lifeslice-mouse-clicks" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_mouse_clicks[(h, m)]
+                )
+                print '<div class="lifeslice-count lifeslice-keyboard-word-count" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_word_count[(h, m)]
+                )
         print '</td>'
     print '</tr>'
 
