@@ -144,24 +144,27 @@ for h in range(24):
                 for window in selfspy_hour_minute_to_window_titles[(h, m)]:
                     print window.encode('UTF-8') + '<br>'
                 print '</div>'
-        if include_lifeslice_db and sum(
-            d[(h, m)] for d in (
+        if include_lifeslice_db and any(
+            d[(h, m)] > 0 for d in (
                 lifeslice_hour_minute_to_mouse_distance,
                 lifeslice_hour_minute_to_mouse_clicks,
                 lifeslice_hour_minute_to_word_count,
             )
-        ) > 0:
+        ):
             if (h, m) not in hour_minute_to_screenshot:
                 print '<div class="placeholder"></div>'
-            print '<div class="lifeslice-count lifeslice-mouse-distance" style="height: {height}%"></div>'.format(
-                height=lifeslice_hour_minute_to_mouse_distance[(h, m)]
-            )
-            print '<div class="lifeslice-count lifeslice-mouse-clicks" style="height: {height}%"></div>'.format(
-                height=lifeslice_hour_minute_to_mouse_clicks[(h, m)]
-            )
-            print '<div class="lifeslice-count lifeslice-keyboard-word-count" style="height: {height}%"></div>'.format(
-                height=lifeslice_hour_minute_to_word_count[(h, m)]
-            )
+            if lifeslice_hour_minute_to_mouse_distance[(h, m)]:
+                print '<div class="lifeslice-count lifeslice-mouse-distance" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_mouse_distance[(h, m)]
+                )
+            if lifeslice_hour_minute_to_mouse_clicks[(h, m)]:
+                print '<div class="lifeslice-count lifeslice-mouse-clicks" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_mouse_clicks[(h, m)]
+                )
+            if lifeslice_hour_minute_to_word_count[(h, m)]:
+                print '<div class="lifeslice-count lifeslice-keyboard-word-count" style="height: {height}%"></div>'.format(
+                    height=lifeslice_hour_minute_to_word_count[(h, m)]
+                )
         print '</td>'
     print '</tr>'
 
