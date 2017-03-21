@@ -2,7 +2,7 @@
 
 1. Install [phantomjs](http://phantomjs.org/): `brew install phantomjs`
 
-1. Copy rasterize.js and screenshot_browser.py to a folder (I use `~/src/hindsight` below)
+1. Clone this repo (I use `~/src/hindsight` below)
 
 1. Add to crontab something like:
 
