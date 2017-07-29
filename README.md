@@ -17,7 +17,7 @@
 1. Optional for privacy: LifeSlice saves both a large and thumbnail-sized screenshot every 5 minutes. Set the larger size to the lowest option (640x400) and add to crontab something to delete those larger files at the top of every hour:
 
     ```
-    0 * * * * rm /Users/<user>/Library/Application\ Support/LifeSlice/screenshot/*
+    0 * * * * rm /Users/<user>/Library/Application\ Support/LifeSlice/screenshot/* >/dev/null 2>&1
     ```
 
 1. Someday: get this working consistently for a second screen :(
